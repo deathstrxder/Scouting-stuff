@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import mplcursors
 
+
 # x_label = "Alliance Expected Contributed Points"
 # y_label = "Alliance Actual Contributed Points"
 
-df = pd.read_csv("scouting_data.csv")
-dfpoints = pd.read_csv("contributed_points.csv")
+df = pd.read_csv(r"Scouting-stuff\scouting_data.csv")
+dfpoints = pd.read_csv(r"Scouting-stuff\contributed_points.csv")
 
 # print(df[['team_key', 'match_number', 'alliance']])pip install pipenv
 
@@ -188,7 +189,6 @@ plt.grid(True)
 plt.tight_layout()
 
 # Hover tooltips for this plot
-import mplcursors
 labels2 = [f"Alliance: {', '.join(map(str, alliance[:3]))}\nMatch: {alliance[3]}" for alliance in alliances_with_match]
 cursor2 = mplcursors.cursor(sc2, hover=True)
 @cursor2.connect("add")
