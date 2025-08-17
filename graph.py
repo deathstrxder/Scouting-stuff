@@ -2,15 +2,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import mplcursors
+from use_attributes import pitscouting_df_filtered
+from matplotlib.widgets import CheckButtons, RadioButtons
 
-
-# x_label = "Alliance Expected Contributed Points"
-# y_label = "Alliance Actual Contributed Points"
 
 df = pd.read_csv(r"Scouting-stuff\scouting_data.csv")
 dfpoints = pd.read_csv(r"Scouting-stuff\contributed_points.csv")
 
-# print(df[['team_key', 'match_number', 'alliance']])pip install pipenv
 
 def contributed_points(team1, team2, team3, match_number):
     team1points = df[(df['team_key'] == team1) & (df['match_number'] == match_number)]
@@ -29,58 +27,29 @@ def expected_contributed_points(team1, team2, team3):
     expected_points = combined_df['average_contributed_points'].sum()
     return expected_points
 
-# red_present = 0
-# blue_present = 0
-# match_frequency = 0
-# points_list = []
-# for i in range(76):
-#     match_frequency = df['match_number'][i].value_counts()[i]
-#     while red_present < 3 or blue_present < 3:
-#         if df['alliance'][i] == 'red':
-#             red_present += 1
-#         elif df['alliance'][i] == 'blue':
-#             blue_present += 1
-#     if red_present < 3:
-#         points_list.append('null')
-#     elif blue_present < 3:
-#         points_list.append('null')
-#     else:
-#         points_list.append(df['expected_contributed_points'][i])
-#     red_present = 0
-#     blue_present = 0
-# return points_list
-
-# filter out matches with less than 3 teams on either alliance
-# blue_teams = 0
-# red_teams = 0
-# filtered_df = df.copy()
-# for num in range(76):
-#     i = num + 1
-#     match = (df['match_number'] == i).sum()
-#     if match < 6:
-#         df_of_match = df[df['match_number'] == i]
-#         blue_teams = ((df['match_number'] == i) & (df['alliance'] == 'blue')).sum()
-#         red_teams = ((df['match_number'] == i) & (df['alliance'] == 'red')).sum()
-#         if blue_teams < 3:
-#             filtered_df = filtered_df[~((filtered_df['match_number'] == i) & (filtered_df['alliance'] == 'blue'))]
-#             print("removed blue teams from match", i)
-#         if red_teams < 3:
-#             filtered_df = filtered_df[~((filtered_df['match_number'] == i) & (filtered_df['alliance'] == 'red'))]
-#             print("removed red teams from match", i)
-#         blue_teams = 0
-#         red_teams = 0
-# filtered_df.to_csv('modified_data.csv', index=False
-# alliances_df = filtered_df[['match_number', 'alliance']].drop_duplicates()
-# num_alliances = alliances_df.shape[0]
-
-# print(num_alliances)
-
 # Create a list of alliances with their match numbers
 alliances = []
 for (match, alliance), group in df.groupby(['match_number', 'alliance']):
     teams = [team.replace('frc', '') for team in group['team_key']]
     if len(teams) == 3:
         alliances.append(teams)
+
+
+
+# Get filterable attributes (0/1 columns, excluding specified ones)
+exclude_cols = set(['driveBaseType', 'numCoralAuto', 'CageClimb'])
+filterable_attributes = [col for col in pitscouting_df_filtered.columns if col not in exclude_cols and pitscouting_df_filtered[col].dropna().isin([0,1]).all()]
+
+# Precompute a team attribute lookup dictionary for fast filtering
+pitscouting_df_filtered['team_key_stripped'] = pitscouting_df_filtered['team_key'].astype(str).str.replace('frc', '', regex=False)
+team_attribute_lookup = {}
+for _, row in pitscouting_df_filtered.iterrows():
+    team = row['team_key_stripped']
+    team_attribute_lookup[team] = {attr: row[attr] for attr in filterable_attributes}
+
+# Initial filter state: all attributes off, and slider values at 0
+active_filters = {attr: False for attr in filterable_attributes}
+slider_values = {attr: 0 for attr in filterable_attributes}
 # Create a list of expected contributed points for each alliance
 expected_contributed_points_list = []
 alliances_length = len(alliances)
@@ -108,7 +77,6 @@ for i in range(alliances_length):
     team2 = alliances_with_match[i][1]
     team3 = alliances_with_match[i][2]
     match_number = alliances_with_match[i][3]
-    print(team1, team2, team3, match_number)
     points = contributed_points(team1, team2, team3, match_number)
     points = round(points, 1)
     contributed_points_list.append(points)
@@ -153,20 +121,31 @@ plt.show()
 
 
 
-# Scatter plot: y-axis = difference, x-axis = general point values (average of expected and actual)
+def alliance_passes_filter(alliance):
+    for attr, active in active_filters.items():
+        if active:
+            count = 0
+            for team in alliance:
+                team_str = str(team).replace('frc', '')
+                val = team_attribute_lookup.get(team_str, {}).get(attr, None)
+                if val == 0:
+                    count += 1
+            if count < slider_values[attr]:
+                return False
+    return True
+
+# Prepare data for scatterplot
 diffs = [e - a for e, a in zip(expected_contributed_points_list, contributed_points_list)]
 general_points = [(e + a) / 2 for e, a in zip(expected_contributed_points_list, contributed_points_list)]
 
-plt.figure(figsize=(10, 6))
-plt.scatter(general_points, diffs, color='purple')
 
-# Add hover tooltips for alliance and match number using mplcursors
-sc = plt.scatter(general_points, diffs, color='purple')
-plt.xlabel('General Point Value (Average of Expected and Actual)')
-plt.ylabel('Difference (Expected - Actual)')
-plt.title('Difference vs General Point Value per Alliance')
-plt.grid(True)
-plt.tight_layout()
+fig2 = plt.figure(figsize=(14, 7))
+ax2 = fig2.add_axes([0.32, 0.12, 0.65, 0.8])  # [left, bottom, width, height]
+sc = ax2.scatter(general_points, diffs, color='purple')
+ax2.set_xlabel('General Point Value (Average of Expected and Actual)')
+ax2.set_ylabel('Difference (Expected - Actual)')
+ax2.set_title('Difference vs General Point Value per Alliance')
+ax2.grid(True)
 
 labels = [f"Alliance: {', '.join(map(str, alliance[:3]))}\nMatch: {alliance[3]}" for alliance in alliances_with_match]
 cursor = mplcursors.cursor(sc, hover=True)
@@ -174,6 +153,68 @@ cursor = mplcursors.cursor(sc, hover=True)
 def on_add(sel):
     sel.annotation.set_text(labels[sel.index])
 
+
+
+
+
+# Add checkboxes for attributes (left panel)
+num_attrs = len(filterable_attributes)
+panel_left = 0.01
+panel_width = 0.25
+total_height = 0.95
+checkbox_height = min(0.018, total_height / (2 * num_attrs))
+slider_height = min(0.018, total_height / (2 * num_attrs))
+slider_space = 0.004
+start_y = 0.98
+
+checkbox_axes = []
+slider_axes = []
+sliders = []
+for idx, attr in enumerate(filterable_attributes):
+    y_checkbox = start_y - idx * (checkbox_height + slider_height + 2*slider_space)
+    y_slider = y_checkbox - checkbox_height - slider_space
+    ax_checkbox = fig2.add_axes([panel_left, y_checkbox, panel_width, checkbox_height])
+    cb = CheckButtons(ax_checkbox, [attr], [False])
+    checkbox_axes.append(cb)
+    short_label = attr if len(attr) <= 18 else attr[:15] + '...'
+    ax_slider = fig2.add_axes([panel_left, y_slider, panel_width, slider_height])
+    s = Slider(ax_slider, f"min: {short_label}", 0, 3, valinit=0, valstep=1)
+    sliders.append(s)
+    slider_axes.append(ax_slider)
+
+# Connect checkbox events
+def make_checkbox_callback(attr):
+    def callback(label):
+        active_filters[attr] = not active_filters[attr]
+        update_plot()
+    return callback
+for idx, cb in enumerate(checkbox_axes):
+    cb.on_clicked(make_checkbox_callback(filterable_attributes[idx]))
+
+
+
+
+def update_slider(val, idx):
+    attr = filterable_attributes[idx]
+    slider_values[attr] = int(sliders[idx].val)
+    update_plot()
+
+def update_plot():
+    offsets = sc.get_offsets()
+    new_offsets = offsets.copy()
+    for i, alliance in enumerate(alliances):
+        visible = alliance_passes_filter(alliance)
+        if visible:
+            new_offsets[i] = offsets[i]
+        else:
+            new_offsets[i] = [np.nan, np.nan]
+    sc.set_offsets(new_offsets)
+    fig2.canvas.draw_idle()
+
+
+s.on_changed(lambda val, idx=idx: update_slider(val, idx))
+
+plt.tight_layout()
 plt.show()
 
 # Scatter plot: y-axis = (actual - expected), x-axis = actual contributed points

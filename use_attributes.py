@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 pitscouting_df = pd.read_csv(r'Scouting-stuff\pitscouting.csv')
 
 cols_to_drop = [
@@ -9,6 +8,5 @@ cols_to_drop = [
 	'preferredStrategy', 'notes'
 ]
 
-filtered_df = pitscouting_df.drop(columns=cols_to_drop)
+pitscouting_df_filtered = pitscouting_df.drop(columns=cols_to_drop)
 
-print(filtered_df.head())
