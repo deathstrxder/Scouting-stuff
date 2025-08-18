@@ -1,6 +1,6 @@
 import pandas as pd
 
-pitscouting_df = pd.read_csv(r'Scouting-stuff\pitscouting.csv')
+pitscouting_df = pd.read_csv('pitscouting.csv')
 
 cols_to_drop = [
 	'org_key', 'year', 'event_key', 'Length', 'Width', 'Weight', 'doAuto',
